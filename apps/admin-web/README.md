@@ -4,24 +4,25 @@ The administrative portal for managing the Enterprise AI CRM platform.
 
 ## Tech Stack
 
-- Next.js 14 (App Router)
+- Next.js 15 (App Router)
 - TypeScript 5
 - TailwindCSS 3
-- Shadcn/ui
 - React Query 5
-- Zustand 4
+- Zustand 5
 
 ## Features
 
-- [ ] Authentication (OAuth2 via Keycloak)
-- [ ] RBAC-aware navigation
-- [ ] Tenant management
-- [ ] User management
+- [x] Authentication scaffold (bearer token store; OIDC/Keycloak-ready)
+- [x] RBAC-aware navigation
+- [x] Tenant management (list)
+- [x] User management (list)
+- [x] Workflow overview
+- [x] Integration overview
+- [x] Service health dashboard
 - [ ] Role and permission management
 - [ ] API key management
 - [ ] Audit log viewer
 - [ ] System settings
-- [ ] Service health dashboard
 
 ## Getting Started
 
@@ -44,5 +45,5 @@ NEXT_PUBLIC_KEYCLOAK_CLIENT_ID=crm-admin-web
 
 ## Phase
 
-This application will be built in **Phase 15** of the development roadmap.
+This application was implemented in **Phase 15** of the development roadmap.
 See [15-roadmap.md](../../docs/15-roadmap.md) for timeline.

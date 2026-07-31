@@ -22,9 +22,9 @@ The project is in active development following the phased workflow defined in th
 | 10 | AI Platform | ✅ Complete |
 | 11 | AI Agents | ✅ Complete |
 | 12 | RAG Pipeline | ✅ Complete |
-| 13 | Workflow Engine | 📋 Planned |
-| 14 | External Integrations | 📋 Planned |
-| 15 | Admin Web | 📋 Planned |
+| 13 | Workflow Engine | ✅ Complete |
+| 14 | External Integrations | ✅ Complete |
+| 15 | Admin Web | ✅ Complete |
 | 16 | CRM Web | 📋 Planned |
 | 17 | Public Website | 📋 Planned |
 | 18 | Mobile API | 📋 Planned |
@@ -80,7 +80,8 @@ Deliverables:
 
 Deliverables:
 - [x] Organization, Customer, Contact, Lead, Opportunity services
-- [ ] Sales, Task, Calendar, Document, Workflow services
+- [x] Workflow service (process automation & approvals)
+- [ ] Sales, Task, Calendar, Document services
 - [ ] Notification and Reporting services
 - [x] Core entity services with OpenAPI, tests, Docker, migrations
 
@@ -101,7 +102,7 @@ Deliverables:
 **Goal:** Full-stack product usable by end users.
 
 Deliverables:
-- [ ] Admin web portal
+- [x] Admin web portal
 - [ ] CRM web application
 - [ ] Public marketing website
 - [ ] Flutter mobile app (iOS + Android)
