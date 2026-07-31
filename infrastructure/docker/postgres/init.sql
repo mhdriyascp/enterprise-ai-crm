@@ -44,6 +44,10 @@ GRANT ALL PRIVILEGES ON DATABASE crm_reporting TO crm;
 CREATE DATABASE crm_ai;
 GRANT ALL PRIVILEGES ON DATABASE crm_ai TO crm;
 
+-- AI Platform service database (gateway, agents, RAG)
+CREATE DATABASE crm_ai_platform;
+GRANT ALL PRIVILEGES ON DATABASE crm_ai_platform TO crm;
+
 CREATE DATABASE crm_integration;
 GRANT ALL PRIVILEGES ON DATABASE crm_integration TO crm;
 

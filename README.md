@@ -77,10 +77,10 @@ enterprise-ai-crm/
 | 6 | Identity & IAM | ✅ |
 | 7 | API Gateway (Kong) | ✅ |
 | 8 | CRM Core Services | 🚧 |
-| 9 | Event Bus (Kafka) | 📋 |
-| 10 | AI Platform | 📋 |
-| 11 | AI Agents | 📋 |
-| 12 | RAG Pipeline | 📋 |
+| 9 | Event Bus (Kafka) | ✅ |
+| 10 | AI Platform | ✅ |
+| 11 | AI Agents | ✅ |
+| 12 | RAG Pipeline | ✅ |
 | 13 | Workflow Engine (Temporal) | 📋 |
 | 14 | External Integrations | 📋 |
 | 15 | Admin Web (Next.js) | 📋 |

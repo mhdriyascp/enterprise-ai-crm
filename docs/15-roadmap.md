@@ -18,10 +18,10 @@ The project is in active development following the phased workflow defined in th
 | 6 | Identity & IAM | ✅ Complete |
 | 7 | API Gateway | ✅ Complete |
 | 8 | CRM Core Services | 🚧 In Progress |
-| 9 | Event Bus | 📋 Planned |
-| 10 | AI Platform | 📋 Planned |
-| 11 | AI Agents | 📋 Planned |
-| 12 | RAG Pipeline | 📋 Planned |
+| 9 | Event Bus | ✅ Complete |
+| 10 | AI Platform | ✅ Complete |
+| 11 | AI Agents | ✅ Complete |
+| 12 | RAG Pipeline | ✅ Complete |
 | 13 | Workflow Engine | 📋 Planned |
 | 14 | External Integrations | 📋 Planned |
 | 15 | Admin Web | 📋 Planned |
@@ -84,14 +84,15 @@ Deliverables:
 - [ ] Notification and Reporting services
 - [x] Core entity services with OpenAPI, tests, Docker, migrations
 
-### Milestone 5: AI Platform (Phases 10-12)
+### Milestone 5: Event Bus & AI Platform (Phases 9-12)
 
-**Goal:** Working AI agents with RAG capabilities.
+**Goal:** Event-driven backbone plus working AI agents with RAG capabilities.
 
 Deliverables:
-- [ ] AI Gateway with model routing
-- [ ] All 9 AI agents implemented
-- [ ] RAG pipeline: ingest → embed → search → generate
+- [x] Event bus (Kafka) with domain events published by CRM core services
+- [x] AI Gateway with model routing (offline mock + OpenAI-compatible providers)
+- [x] All 9 AI agents implemented with supervisor routing
+- [x] RAG pipeline: ingest → embed → search → generate (with citations)
 - [ ] Langfuse observability
 - [ ] Agent API with streaming support
 

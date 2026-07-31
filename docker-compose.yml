@@ -537,13 +537,34 @@ services:
       - crm-network
 
   ai-platform:
-    image: node:20-alpine
+    build:
+      context: .
+      dockerfile: services/ai-platform/Dockerfile
+      args:
+        SERVICE_NAME: ai-platform
     container_name: crm-ai-platform
     restart: unless-stopped
-    working_dir: /app
-    command: sh -c "node -e \"const http=require('http');http.createServer((req,res)=>{if(req.url==='/health'){res.writeHead(200,{'Content-Type':'application/json'});res.end(JSON.stringify({status:'ok',service:'ai-platform',version:'0.1.0-placeholder'}))}else{res.writeHead(404);res.end()}}).listen(3000,()=>console.log('AI Platform placeholder running on :3000'))\""
+    environment:
+      NODE_ENV: production
+      SERVICE_NAME: ai-platform-service
+      PORT: 3000
+      HOST: 0.0.0.0
+      LOG_LEVEL: info
+      DATABASE_URL: postgresql://crm:crm_dev_password@postgres:5432/crm_ai_platform
+      JWT_SECRET: change_this_in_production_minimum_32_chars
+      JWT_ISSUER: http://localhost:8080/realms/crm
+      EVENTS_ENABLED: "false"
+      KAFKA_BROKERS: kafka:29092
+      KAFKA_CLIENT_ID: crm-ai-platform
+      LLM_PROVIDER: mock
+      EMBEDDING_PROVIDER: mock
+      VECTOR_STORE: qdrant
+      QDRANT_URL: http://qdrant:6333
     ports:
       - "3200:3000"
+    depends_on:
+      - postgres
+      - qdrant
     healthcheck:
       test: ["CMD-SHELL", "wget -q --tries=1 http://localhost:3000/health -O /dev/null || exit 1"]
       interval: 30s
