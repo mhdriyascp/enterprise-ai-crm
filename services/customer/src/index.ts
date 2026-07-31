@@ -1,4 +1,5 @@
 import { createLogger } from '@crm/logging';
+import { createEventBus } from '@crm/events';
 
 import { loadConfig } from './config';
 import { disconnectPrisma, getPrisma } from './infrastructure/database/prisma';
@@ -17,11 +18,22 @@ async function start(): Promise<void> {
   });
 
   const prisma = getPrisma({ databaseUrl: config.DATABASE_URL, logger });
-  const app = await buildApp({ prisma, config, logger });
+
+  const eventBus = createEventBus({
+    enabled: config.EVENTS_ENABLED,
+    brokers: config.KAFKA_BROKERS,
+    clientId: config.KAFKA_CLIENT_ID,
+    serviceName: 'customer-service',
+    logger,
+  });
+  await eventBus.connect();
+
+  const app = await buildApp({ prisma, config, logger, events: eventBus.publisher });
 
   const shutdown = async (signal: string): Promise<void> => {
     logger.info({ signal }, 'Shutting down customer service');
     await app.close();
+    await eventBus.disconnect();
     await disconnectPrisma();
     process.exit(0);
   };

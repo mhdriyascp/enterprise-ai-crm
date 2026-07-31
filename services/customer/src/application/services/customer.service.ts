@@ -1,6 +1,7 @@
 import type { Customer, Prisma, PrismaClient } from '@prisma/client';
 
 import { NotFoundError } from '@crm/common';
+import { EventTopics, NoopEventPublisher, type EventPublisher } from '@crm/events';
 
 import type {
   CreateCustomerInput,
@@ -16,6 +17,7 @@ import type {
 
 export interface TenantContext {
   tenantId: string;
+  userId?: string;
 }
 
 /** Serialised customer with the Decimal `revenue` converted to a number. */
@@ -29,7 +31,10 @@ function toDto(customer: Customer): CustomerDto {
 }
 
 export class CustomerService {
-  constructor(private readonly prisma: PrismaClient) {}
+  constructor(
+    private readonly prisma: PrismaClient,
+    private readonly events: EventPublisher = new NoopEventPublisher(),
+  ) {}
 
   async create(ctx: TenantContext, input: CreateCustomerInput): Promise<CustomerDto> {
     const customer = await this.prisma.customer.create({
@@ -49,6 +54,11 @@ export class CustomerService {
         customFields: (input.customFields ?? {}) as Prisma.InputJsonValue,
       },
     });
+    await this.events.publish(
+      EventTopics.CUSTOMER_CREATED,
+      { customerId: customer.id, name: customer.name },
+      { tenantId: ctx.tenantId, userId: ctx.userId },
+    );
     return toDto(customer);
   }
 
@@ -105,6 +115,11 @@ export class CustomerService {
         customFields: input.customFields as Prisma.InputJsonValue | undefined,
       },
     });
+    await this.events.publish(
+      EventTopics.CUSTOMER_UPDATED,
+      { customerId: customer.id, name: customer.name },
+      { tenantId: ctx.tenantId, userId: ctx.userId },
+    );
     return toDto(customer);
   }
 

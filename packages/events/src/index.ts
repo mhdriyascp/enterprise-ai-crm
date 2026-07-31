@@ -29,11 +29,26 @@ export interface ConsumerOptions {
 
 type EventHandler<T = unknown> = (event: BaseEvent<T>) => Promise<void>;
 
+export interface PublishOptions {
+  tenantId: string;
+  userId?: string;
+  correlationId?: string;
+}
+
+/**
+ * Minimal publishing contract consumed by domain services. Both the real
+ * {@link EventProducer} and the {@link NoopEventPublisher} satisfy it, so
+ * services can depend on the interface and remain agnostic of transport.
+ */
+export interface EventPublisher {
+  publish<T = unknown>(topic: EventTopic, data: T, options: PublishOptions): Promise<void>;
+}
+
 // ---------------------------------------------------------------------------
 // Event Producer
 // ---------------------------------------------------------------------------
-export class EventProducer {
-  private producer: Producer;
+export class EventProducer implements EventPublisher {
+  private readonly producer: Producer;
   private readonly logger?: Logger;
   private readonly serviceName: string;
 
@@ -58,11 +73,7 @@ export class EventProducer {
   async publish<T = unknown>(
     topic: EventTopic,
     data: T,
-    options: {
-      tenantId: string;
-      userId?: string;
-      correlationId?: string;
-    },
+    options: PublishOptions,
   ): Promise<void> {
     const event: BaseEvent<T> = {
       id: uuidv4(),
@@ -161,4 +172,91 @@ export function createKafkaClient(options: KafkaClientOptions): Kafka {
       retries: 8,
     },
   });
+}
+
+// ---------------------------------------------------------------------------
+// Publisher decorators & factory
+// ---------------------------------------------------------------------------
+
+/**
+ * A publisher that silently discards events. Used when the event bus is
+ * disabled (for example in tests or minimal local runs) so that domain
+ * services can depend on {@link EventPublisher} unconditionally.
+ */
+export class NoopEventPublisher implements EventPublisher {
+  async publish(): Promise<void> {
+    /* intentionally does nothing */
+  }
+}
+
+/**
+ * Wraps another publisher and guarantees that publishing never throws.
+ * Event delivery is best-effort: a broker outage must not fail the originating
+ * business transaction, so failures are logged and swallowed.
+ */
+export class SafeEventPublisher implements EventPublisher {
+  constructor(
+    private readonly inner: EventPublisher,
+    private readonly logger?: Logger,
+  ) {}
+
+  async publish<T = unknown>(topic: EventTopic, data: T, options: PublishOptions): Promise<void> {
+    try {
+      await this.inner.publish(topic, data, options);
+    } catch (error) {
+      this.logger?.error({ topic, error }, 'Failed to publish event (suppressed)');
+    }
+  }
+}
+
+export interface EventBusOptions {
+  /** When false, a no-op publisher is returned and Kafka is never contacted. */
+  enabled: boolean;
+  brokers: string[];
+  clientId: string;
+  serviceName: string;
+  logger?: Logger;
+}
+
+/**
+ * A connected event bus handle: the {@link EventPublisher} plus lifecycle
+ * hooks for wiring into a service's start/stop sequence.
+ */
+export interface EventBus {
+  publisher: EventPublisher;
+  connect(): Promise<void>;
+  disconnect(): Promise<void>;
+}
+
+/**
+ * Creates an {@link EventBus}. When `enabled` is false a no-op implementation is
+ * returned so callers need no conditional logic. Publishing through the
+ * returned bus is always safe (never throws).
+ */
+export function createEventBus(options: EventBusOptions): EventBus {
+  if (!options.enabled) {
+    options.logger?.info('Event bus disabled; using no-op publisher');
+    return {
+      publisher: new NoopEventPublisher(),
+      connect: async () => {},
+      disconnect: async () => {},
+    };
+  }
+
+  const kafka = createKafkaClient({
+    brokers: options.brokers,
+    clientId: options.clientId,
+    logger: options.logger,
+  });
+  const producer = new EventProducer({
+    kafka,
+    logger: options.logger,
+    serviceName: options.serviceName,
+  });
+
+  return {
+    publisher: new SafeEventPublisher(producer, options.logger),
+    connect: () => producer.connect(),
+    disconnect: () => producer.disconnect(),
+  };
 }

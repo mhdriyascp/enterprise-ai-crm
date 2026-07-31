@@ -37,6 +37,21 @@ export const KafkaConfigSchema = z.object({
   KAFKA_SASL_PASSWORD: z.string().optional(),
 });
 
+// Event bus configuration — lightweight, optional Kafka publishing for
+// domain services. Distinct from KafkaConfigSchema (which also requires a
+// consumer group). Publishing is opt-in via EVENTS_ENABLED.
+export const EventBusConfigSchema = z.object({
+  EVENTS_ENABLED: z
+    .string()
+    .default('false')
+    .transform((v) => v === 'true' || v === '1'),
+  KAFKA_BROKERS: z
+    .string()
+    .default('localhost:9092')
+    .transform((v) => v.split(',').map((s) => s.trim())),
+  KAFKA_CLIENT_ID: z.string().default('crm-service'),
+});
+
 // JWT configuration
 export const JwtConfigSchema = z.object({
   JWT_SECRET: z.string().min(32),
@@ -57,6 +72,7 @@ export type BaseServiceConfig = z.infer<typeof BaseServiceConfigSchema>;
 export type DatabaseConfig = z.infer<typeof DatabaseConfigSchema>;
 export type RedisConfig = z.infer<typeof RedisConfigSchema>;
 export type KafkaConfig = z.infer<typeof KafkaConfigSchema>;
+export type EventBusConfig = z.infer<typeof EventBusConfigSchema>;
 export type JwtConfig = z.infer<typeof JwtConfigSchema>;
 export type OtelConfig = z.infer<typeof OtelConfigSchema>;
 

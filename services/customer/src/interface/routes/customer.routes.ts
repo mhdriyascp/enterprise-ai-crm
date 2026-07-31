@@ -29,7 +29,7 @@ export function registerCustomerRoutes(
     async (request, reply) => {
       const principal = requirePrincipal(request);
       const body = CreateCustomerSchema.parse(request.body);
-      const customer = await service.create({ tenantId: principal.tenantId }, body);
+      const customer = await service.create({ tenantId: principal.tenantId, userId: principal.userId }, body);
       reply.status(201).send({ data: customer });
     },
   );
@@ -40,7 +40,7 @@ export function registerCustomerRoutes(
     async (request, reply) => {
       const principal = requirePrincipal(request);
       const query = ListCustomersQuerySchema.parse(request.query);
-      const { data, total } = await service.list({ tenantId: principal.tenantId }, query);
+      const { data, total } = await service.list({ tenantId: principal.tenantId, userId: principal.userId }, query);
       reply.send(buildPaginatedResult(data, total, query.page, query.limit, request.id));
     },
   );
@@ -51,7 +51,7 @@ export function registerCustomerRoutes(
     async (request, reply) => {
       const principal = requirePrincipal(request);
       const { id } = IdParamSchema.parse(request.params);
-      reply.send({ data: await service.findById({ tenantId: principal.tenantId }, id) });
+      reply.send({ data: await service.findById({ tenantId: principal.tenantId, userId: principal.userId }, id) });
     },
   );
 
@@ -62,7 +62,7 @@ export function registerCustomerRoutes(
       const principal = requirePrincipal(request);
       const { id } = IdParamSchema.parse(request.params);
       const body = UpdateCustomerSchema.parse(request.body);
-      reply.send({ data: await service.update({ tenantId: principal.tenantId }, id, body) });
+      reply.send({ data: await service.update({ tenantId: principal.tenantId, userId: principal.userId }, id, body) });
     },
   );
 
@@ -72,7 +72,7 @@ export function registerCustomerRoutes(
     async (request, reply) => {
       const principal = requirePrincipal(request);
       const { id } = IdParamSchema.parse(request.params);
-      await service.softDelete({ tenantId: principal.tenantId }, id);
+      await service.softDelete({ tenantId: principal.tenantId, userId: principal.userId }, id);
       reply.status(204).send();
     },
   );

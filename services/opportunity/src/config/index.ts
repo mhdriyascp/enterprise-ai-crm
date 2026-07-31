@@ -3,6 +3,7 @@ import { z } from 'zod';
 import {
   BaseServiceConfigSchema,
   DatabaseConfigSchema,
+  EventBusConfigSchema,
   JwtConfigSchema,
   parseConfig,
 } from '@crm/config';
@@ -13,6 +14,7 @@ import {
 
 const OpportunityConfigSchema = BaseServiceConfigSchema.merge(DatabaseConfigSchema)
   .merge(JwtConfigSchema)
+  .merge(EventBusConfigSchema)
   .extend({
     CORS_ORIGINS: z
       .string()

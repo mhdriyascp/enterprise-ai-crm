@@ -7,6 +7,7 @@ import fastifySwaggerUi from '@fastify/swagger-ui';
 import type { PrismaClient } from '@prisma/client';
 
 import type { Logger } from '@crm/logging';
+import { NoopEventPublisher, type EventPublisher } from '@crm/events';
 
 import type { OpportunityConfig } from '../../config';
 import { OpportunityService } from '../../application/services/opportunity.service';
@@ -23,13 +24,14 @@ export interface BuildAppOptions {
   prisma: PrismaClient;
   config: OpportunityConfig;
   logger: Logger;
+  events?: EventPublisher;
 }
 
 export async function buildApp(opts: BuildAppOptions): Promise<FastifyInstance> {
   const { prisma, config, logger } = opts;
   const app = Fastify({ logger: false, trustProxy: true });
 
-  const service = new OpportunityService(prisma);
+  const service = new OpportunityService(prisma, opts.events ?? new NoopEventPublisher());
   const authenticate = createAuthenticate({
     secret: config.JWT_SECRET,
     issuer: config.JWT_ISSUER,

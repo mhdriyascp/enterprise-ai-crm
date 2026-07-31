@@ -1,6 +1,7 @@
 import type { Opportunity, Prisma, PrismaClient } from '@prisma/client';
 
 import { NotFoundError } from '@crm/common';
+import { EventTopics, NoopEventPublisher, type EventPublisher } from '@crm/events';
 
 import type {
   CreateOpportunityInput,
@@ -14,6 +15,7 @@ import type {
 
 export interface TenantContext {
   tenantId: string;
+  userId?: string;
 }
 
 /** Serialised opportunity with the Decimal `amount` converted to a number. */
@@ -27,7 +29,10 @@ function toDto(opportunity: Opportunity): OpportunityDto {
 }
 
 export class OpportunityService {
-  constructor(private readonly prisma: PrismaClient) {}
+  constructor(
+    private readonly prisma: PrismaClient,
+    private readonly events: EventPublisher = new NoopEventPublisher(),
+  ) {}
 
   async create(ctx: TenantContext, input: CreateOpportunityInput): Promise<OpportunityDto> {
     const opportunity = await this.prisma.opportunity.create({
@@ -48,6 +53,16 @@ export class OpportunityService {
         customFields: (input.customFields ?? {}) as Prisma.InputJsonValue,
       },
     });
+    await this.events.publish(
+      EventTopics.OPPORTUNITY_CREATED,
+      {
+        opportunityId: opportunity.id,
+        amount: Number(opportunity.amount),
+        currency: opportunity.currency,
+      },
+      { tenantId: ctx.tenantId, userId: ctx.userId },
+    );
+    await this.publishStageEvent(ctx, opportunity, undefined);
     return toDto(opportunity);
   }
 
@@ -93,6 +108,7 @@ export class OpportunityService {
     input: UpdateOpportunityInput,
   ): Promise<OpportunityDto> {
     await this.findById(ctx, id);
+    const previous = await this.prisma.opportunity.findFirst({ where: { id } });
     const opportunity = await this.prisma.opportunity.update({
       where: { id },
       data: {
@@ -104,7 +120,38 @@ export class OpportunityService {
         customFields: input.customFields as Prisma.InputJsonValue | undefined,
       },
     });
+    await this.publishStageEvent(ctx, opportunity, previous?.stage);
     return toDto(opportunity);
+  }
+
+  /**
+   * Emit a won/lost event when an opportunity enters a closed stage. `fromStage`
+   * is the prior stage (undefined on create) so events only fire on transition.
+   */
+  private async publishStageEvent(
+    ctx: TenantContext,
+    opportunity: Opportunity,
+    fromStage: string | undefined,
+  ): Promise<void> {
+    if (opportunity.stage === fromStage) return;
+
+    if (opportunity.stage === 'closed_won') {
+      await this.events.publish(
+        EventTopics.OPPORTUNITY_WON,
+        {
+          opportunityId: opportunity.id,
+          amount: Number(opportunity.amount),
+          currency: opportunity.currency,
+        },
+        { tenantId: ctx.tenantId, userId: ctx.userId },
+      );
+    } else if (opportunity.stage === 'closed_lost') {
+      await this.events.publish(
+        EventTopics.OPPORTUNITY_LOST,
+        { opportunityId: opportunity.id },
+        { tenantId: ctx.tenantId, userId: ctx.userId },
+      );
+    }
   }
 
   async softDelete(ctx: TenantContext, id: string): Promise<void> {

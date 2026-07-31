@@ -327,6 +327,9 @@ importers:
       '@crm/config':
         specifier: workspace:*
         version: link:../../packages/config
+      '@crm/events':
+        specifier: workspace:*
+        version: link:../../packages/events
       '@crm/logging':
         specifier: workspace:*
         version: link:../../packages/logging
@@ -531,6 +534,9 @@ importers:
       '@crm/config':
         specifier: workspace:*
         version: link:../../packages/config
+      '@crm/events':
+        specifier: workspace:*
+        version: link:../../packages/events
       '@crm/logging':
         specifier: workspace:*
         version: link:../../packages/logging
@@ -656,6 +662,9 @@ importers:
       '@crm/config':
         specifier: workspace:*
         version: link:../../packages/config
+      '@crm/events':
+        specifier: workspace:*
+        version: link:../../packages/events
       '@crm/logging':
         specifier: workspace:*
         version: link:../../packages/logging
