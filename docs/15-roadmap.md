@@ -79,10 +79,10 @@ Deliverables:
 **Goal:** Functional CRM with all core entities.
 
 Deliverables:
-- [ ] Organization, Customer, Contact, Lead, Opportunity services
+- [x] Organization, Customer, Contact, Lead, Opportunity services
 - [ ] Sales, Task, Calendar, Document, Workflow services
 - [ ] Notification and Reporting services
-- [ ] All services with OpenAPI, tests, Docker, migrations
+- [x] Core entity services with OpenAPI, tests, Docker, migrations
 
 ### Milestone 5: AI Platform (Phases 10-12)
 

@@ -392,13 +392,55 @@ services:
       - crm-network
 
   customer-service:
-    image: node:20-alpine
+    build:
+      context: .
+      dockerfile: services/customer/Dockerfile
+      args:
+        SERVICE_NAME: customer
     container_name: crm-customer-service
     restart: unless-stopped
-    working_dir: /app
-    command: sh -c "node -e \"const http=require('http');http.createServer((req,res)=>{if(req.url==='/health'){res.writeHead(200,{'Content-Type':'application/json'});res.end(JSON.stringify({status:'ok',service:'customer-service',version:'0.1.0-placeholder'}))}else{res.writeHead(404);res.end()}}).listen(3000,()=>console.log('Customer Service placeholder running on :3000'))\""
+    environment:
+      NODE_ENV: production
+      SERVICE_NAME: customer-service
+      PORT: 3000
+      HOST: 0.0.0.0
+      LOG_LEVEL: info
+      DATABASE_URL: postgresql://crm:crm_dev_password@postgres:5432/crm_customer
+      JWT_SECRET: change_this_in_production_minimum_32_chars
+      JWT_ISSUER: http://localhost:8080/realms/crm
     ports:
       - "3101:3000"
+    depends_on:
+      - postgres
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q --tries=1 http://localhost:3000/health -O /dev/null || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    networks:
+      - crm-network
+
+  contact-service:
+    build:
+      context: .
+      dockerfile: services/contact/Dockerfile
+      args:
+        SERVICE_NAME: contact
+    container_name: crm-contact-service
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      SERVICE_NAME: contact-service
+      PORT: 3000
+      HOST: 0.0.0.0
+      LOG_LEVEL: info
+      DATABASE_URL: postgresql://crm:crm_dev_password@postgres:5432/crm_contact
+      JWT_SECRET: change_this_in_production_minimum_32_chars
+      JWT_ISSUER: http://localhost:8080/realms/crm
+    ports:
+      - "3105:3000"
+    depends_on:
+      - postgres
     healthcheck:
       test: ["CMD-SHELL", "wget -q --tries=1 http://localhost:3000/health -O /dev/null || exit 1"]
       interval: 30s
@@ -408,13 +450,26 @@ services:
       - crm-network
 
   lead-service:
-    image: node:20-alpine
+    build:
+      context: .
+      dockerfile: services/lead/Dockerfile
+      args:
+        SERVICE_NAME: lead
     container_name: crm-lead-service
     restart: unless-stopped
-    working_dir: /app
-    command: sh -c "node -e \"const http=require('http');http.createServer((req,res)=>{if(req.url==='/health'){res.writeHead(200,{'Content-Type':'application/json'});res.end(JSON.stringify({status:'ok',service:'lead-service',version:'0.1.0-placeholder'}))}else{res.writeHead(404);res.end()}}).listen(3000,()=>console.log('Lead Service placeholder running on :3000'))\""
+    environment:
+      NODE_ENV: production
+      SERVICE_NAME: lead-service
+      PORT: 3000
+      HOST: 0.0.0.0
+      LOG_LEVEL: info
+      DATABASE_URL: postgresql://crm:crm_dev_password@postgres:5432/crm_lead
+      JWT_SECRET: change_this_in_production_minimum_32_chars
+      JWT_ISSUER: http://localhost:8080/realms/crm
     ports:
       - "3102:3000"
+    depends_on:
+      - postgres
     healthcheck:
       test: ["CMD-SHELL", "wget -q --tries=1 http://localhost:3000/health -O /dev/null || exit 1"]
       interval: 30s
@@ -424,13 +479,55 @@ services:
       - crm-network
 
   opportunity-service:
-    image: node:20-alpine
+    build:
+      context: .
+      dockerfile: services/opportunity/Dockerfile
+      args:
+        SERVICE_NAME: opportunity
     container_name: crm-opportunity-service
     restart: unless-stopped
-    working_dir: /app
-    command: sh -c "node -e \"const http=require('http');http.createServer((req,res)=>{if(req.url==='/health'){res.writeHead(200,{'Content-Type':'application/json'});res.end(JSON.stringify({status:'ok',service:'opportunity-service',version:'0.1.0-placeholder'}))}else{res.writeHead(404);res.end()}}).listen(3000,()=>console.log('Opportunity Service placeholder running on :3000'))\""
+    environment:
+      NODE_ENV: production
+      SERVICE_NAME: opportunity-service
+      PORT: 3000
+      HOST: 0.0.0.0
+      LOG_LEVEL: info
+      DATABASE_URL: postgresql://crm:crm_dev_password@postgres:5432/crm_opportunity
+      JWT_SECRET: change_this_in_production_minimum_32_chars
+      JWT_ISSUER: http://localhost:8080/realms/crm
     ports:
       - "3103:3000"
+    depends_on:
+      - postgres
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q --tries=1 http://localhost:3000/health -O /dev/null || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    networks:
+      - crm-network
+
+  organization-service:
+    build:
+      context: .
+      dockerfile: services/organization/Dockerfile
+      args:
+        SERVICE_NAME: organization
+    container_name: crm-organization-service
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      SERVICE_NAME: organization-service
+      PORT: 3000
+      HOST: 0.0.0.0
+      LOG_LEVEL: info
+      DATABASE_URL: postgresql://crm:crm_dev_password@postgres:5432/crm_organization
+      JWT_SECRET: change_this_in_production_minimum_32_chars
+      JWT_ISSUER: http://localhost:8080/realms/crm
+    ports:
+      - "3104:3000"
+    depends_on:
+      - postgres
     healthcheck:
       test: ["CMD-SHELL", "wget -q --tries=1 http://localhost:3000/health -O /dev/null || exit 1"]
       interval: 30s
