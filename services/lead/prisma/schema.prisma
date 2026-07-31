@@ -1,0 +1,60 @@
+// =============================================================================
+// Lead Service — Prisma Schema (owns the `crm_lead` database).
+// =============================================================================
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// -----------------------------------------------------------------------------
+// Lead — an unqualified prospect that may convert into a customer.
+// -----------------------------------------------------------------------------
+model Lead {
+  id           String     @id @default(uuid()) @db.Uuid
+  tenantId     String     @map("tenant_id") @db.Uuid
+  firstName    String     @map("first_name")
+  lastName     String     @map("last_name")
+  email        String?
+  phone        String?
+  company      String?
+  title        String?
+  source       LeadSource @default(other)
+  status       LeadStatus @default(new)
+  score        Int?
+  ownerId      String?    @map("owner_id") @db.Uuid
+  tags         String[]   @default([])
+  notes        String?
+  customFields Json       @default("{}") @map("custom_fields")
+  createdAt    DateTime   @default(now()) @map("created_at")
+  updatedAt    DateTime   @updatedAt @map("updated_at")
+  deletedAt    DateTime?  @map("deleted_at")
+
+  @@index([tenantId])
+  @@index([tenantId, status])
+  @@index([tenantId, ownerId])
+  @@map("leads")
+}
+
+enum LeadSource {
+  website
+  referral
+  social
+  email
+  cold_call
+  event
+  partner
+  other
+}
+
+enum LeadStatus {
+  new
+  contacted
+  qualified
+  unqualified
+  converted
+}
