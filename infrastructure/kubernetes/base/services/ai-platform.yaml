@@ -1,0 +1,67 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ai-platform-service
+  labels:
+    app.kubernetes.io/name: ai-platform-service
+    app.kubernetes.io/part-of: enterprise-ai-crm
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: ai-platform-service
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: ai-platform-service
+        app.kubernetes.io/part-of: enterprise-ai-crm
+    spec:
+      containers:
+        - name: ai-platform-service
+          image: ghcr.io/mhdriyascp/crm-ai-platform:latest
+          ports:
+            - name: http
+              containerPort: 3000
+          envFrom:
+            - configMapRef:
+                name: crm-common-config
+            - secretRef:
+                name: crm-common-secret
+          env:
+            - name: SERVICE_NAME
+              value: ai-platform-service
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 15
+            periodSeconds: 20
+          readinessProbe:
+            httpGet:
+              path: /health/ready
+              port: http
+            initialDelaySeconds: 10
+            periodSeconds: 10
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: ai-platform-service
+  labels:
+    app.kubernetes.io/name: ai-platform-service
+    app.kubernetes.io/part-of: enterprise-ai-crm
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: ai-platform-service
+  ports:
+    - name: http
+      port: 80
+      targetPort: http

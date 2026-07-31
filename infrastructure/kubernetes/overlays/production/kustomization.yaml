@@ -1,0 +1,26 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: crm-production
+
+resources:
+  - ../../base
+
+commonLabels:
+  app.kubernetes.io/environment: production
+
+# Production runs more replicas for high availability.
+patches:
+  - target:
+      kind: Deployment
+    patch: |-
+      - op: replace
+        path: /spec/replicas
+        value: 3
+
+configMapGenerator:
+  - name: crm-common-config
+    behavior: merge
+    literals:
+      - NODE_ENV=production
+      - LOG_LEVEL=info

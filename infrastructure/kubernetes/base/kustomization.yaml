@@ -1,0 +1,27 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: crm
+
+commonLabels:
+  app.kubernetes.io/managed-by: kustomize
+
+resources:
+  - namespace.yaml
+  - configmap.yaml
+  - secret.yaml
+  - services/ai-platform.yaml
+  - services/calendar.yaml
+  - services/contact.yaml
+  - services/customer.yaml
+  - services/document.yaml
+  - services/identity.yaml
+  - services/integration.yaml
+  - services/lead.yaml
+  - services/notification.yaml
+  - services/opportunity.yaml
+  - services/organization.yaml
+  - services/reporting.yaml
+  - services/sales.yaml
+  - services/task.yaml
+  - services/workflow.yaml
