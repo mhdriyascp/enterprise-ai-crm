@@ -74,9 +74,9 @@ enterprise-ai-crm/
 | 3 | Docker Environment | ✅ |
 | 4 | Monorepo (Turborepo) | ✅ |
 | 5 | Shared Packages | ✅ |
-| 6 | Identity & IAM | 📋 |
-| 7 | API Gateway (Kong) | 📋 |
-| 8 | CRM Core Services | 📋 |
+| 6 | Identity & IAM | ✅ |
+| 7 | API Gateway (Kong) | ✅ |
+| 8 | CRM Core Services | 🚧 |
 | 9 | Event Bus (Kafka) | 📋 |
 | 10 | AI Platform | 📋 |
 | 11 | AI Agents | 📋 |

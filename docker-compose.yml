@@ -240,62 +240,26 @@ services:
       - crm-network
 
   # =========================================================================
-  # Kong API Gateway
+  # Kong API Gateway (DB-less / declarative mode)
   # =========================================================================
-  kong-db:
-    image: postgres:16-alpine
-    container_name: crm-kong-db
-    restart: unless-stopped
-    environment:
-      POSTGRES_USER: kong
-      POSTGRES_PASSWORD: kong_password
-      POSTGRES_DB: kong
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U kong -d kong"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-    networks:
-      - crm-network
-
-  kong-migrations:
-    image: kong:3.6-ubuntu
-    container_name: crm-kong-migrations
-    depends_on:
-      kong-db:
-        condition: service_healthy
-    environment:
-      KONG_DATABASE: postgres
-      KONG_PG_HOST: kong-db
-      KONG_PG_USER: kong
-      KONG_PG_PASSWORD: kong_password
-      KONG_PG_DATABASE: kong
-    command: kong migrations bootstrap
-    restart: on-failure
-    networks:
-      - crm-network
-
+  # Kong loads its entire configuration from infrastructure/kong/kong.yml on
+  # startup. This keeps the gateway config version-controlled and reproducible
+  # (no database or migration bootstrap required).
   kong:
     image: kong:3.6-ubuntu
     container_name: crm-kong
     restart: unless-stopped
-    depends_on:
-      kong-db:
-        condition: service_healthy
-      kong-migrations:
-        condition: service_completed_successfully
     environment:
-      KONG_DATABASE: postgres
-      KONG_PG_HOST: kong-db
-      KONG_PG_USER: kong
-      KONG_PG_PASSWORD: kong_password
-      KONG_PG_DATABASE: kong
+      KONG_DATABASE: "off"
+      KONG_DECLARATIVE_CONFIG: /etc/kong/kong.yml
       KONG_PROXY_ACCESS_LOG: /dev/stdout
       KONG_ADMIN_ACCESS_LOG: /dev/stdout
       KONG_PROXY_ERROR_LOG: /dev/stderr
       KONG_ADMIN_ERROR_LOG: /dev/stderr
       KONG_ADMIN_LISTEN: "0.0.0.0:8001"
       KONG_PROXY_LISTEN: "0.0.0.0:8000"
+    volumes:
+      - ./infrastructure/kong/kong.yml:/etc/kong/kong.yml:ro
     ports:
       - "8000:8000"   # Proxy
       - "8001:8001"   # Admin API
@@ -389,7 +353,7 @@ services:
       langfuse-db:
         condition: service_healthy
     environment:
-      DATABASE_URL: ******langfuse-db:5432/langfuse
+      DATABASE_URL: postgresql://langfuse:langfuse_password@langfuse-db:5432/langfuse
       NEXTAUTH_SECRET: langfuse_dev_secret_do_not_use_in_prod
       SALT: langfuse_dev_salt_do_not_use_in_prod
       NEXTAUTH_URL: http://localhost:3030

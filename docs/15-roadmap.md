@@ -15,9 +15,9 @@ The project is in active development following the phased workflow defined in th
 | 3 | Docker Environment | 🚧 In Progress |
 | 4 | Monorepo Setup | 🚧 In Progress |
 | 5 | Shared Libraries | 📋 Planned |
-| 6 | Identity & IAM | 📋 Planned |
-| 7 | API Gateway | 📋 Planned |
-| 8 | CRM Core Services | 📋 Planned |
+| 6 | Identity & IAM | ✅ Complete |
+| 7 | API Gateway | ✅ Complete |
+| 8 | CRM Core Services | 🚧 In Progress |
 | 9 | Event Bus | 📋 Planned |
 | 10 | AI Platform | 📋 Planned |
 | 11 | AI Agents | 📋 Planned |
@@ -68,11 +68,11 @@ Deliverables:
 **Goal:** Production-ready Kong configuration.
 
 Deliverables:
-- [ ] JWT validation plugin configured
-- [ ] Rate limiting per user and tenant
-- [ ] Request logging to OpenSearch
-- [ ] Versioned route configuration
-- [ ] Health check endpoints
+- [x] JWT validation plugin configured
+- [x] Rate limiting per user and tenant
+- [x] Request logging to OpenSearch
+- [x] Versioned route configuration
+- [x] Health check endpoints
 
 ### Milestone 4: CRM Core (Phase 8)
 
