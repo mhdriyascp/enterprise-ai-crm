@@ -39,7 +39,7 @@ interface RequestOptions {
 export async function apiFetch<T>(path: string, options: RequestOptions = {}): Promise<T> {
   const token = useAuthStore.getState().token;
   const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-  if (token) headers.Authorization = `******;
+  if (token) headers.Authorization = 'Bearer ' + token;
 
   const response = await fetch(`${config.apiUrl}${path}`, {
     method: options.method ?? 'GET',

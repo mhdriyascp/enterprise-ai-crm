@@ -636,3 +636,86 @@ services:
       retries: 3
     networks:
       - crm-network
+
+  # ===========================================================================
+  # Frontend applications & mobile BFF
+  # ===========================================================================
+
+  admin-web:
+    build:
+      context: .
+      dockerfile: apps/admin-web/Dockerfile
+    container_name: crm-admin-web
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      NEXT_PUBLIC_API_URL: http://localhost:8000
+      NEXT_PUBLIC_KEYCLOAK_URL: http://localhost:8080
+      NEXT_PUBLIC_KEYCLOAK_REALM: crm
+      NEXT_PUBLIC_KEYCLOAK_CLIENT_ID: crm-admin-web
+    ports:
+      - "3000:3000"
+    networks:
+      - crm-network
+
+  crm-web:
+    build:
+      context: .
+      dockerfile: apps/crm-web/Dockerfile
+    container_name: crm-web
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      PORT: 3002
+      NEXT_PUBLIC_API_URL: http://localhost:8000
+      NEXT_PUBLIC_KEYCLOAK_URL: http://localhost:8080
+      NEXT_PUBLIC_KEYCLOAK_REALM: crm
+      NEXT_PUBLIC_KEYCLOAK_CLIENT_ID: crm-web
+    ports:
+      - "3002:3002"
+    networks:
+      - crm-network
+
+  public-web:
+    build:
+      context: .
+      dockerfile: apps/public-web/Dockerfile
+    container_name: crm-public-web
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      PORT: 3003
+      NEXT_PUBLIC_APP_URL: http://localhost:3002
+    ports:
+      - "3003:3003"
+    networks:
+      - crm-network
+
+  mobile-api:
+    build:
+      context: .
+      dockerfile: apps/mobile-api/Dockerfile
+    container_name: crm-mobile-api
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      SERVICE_NAME: mobile-api
+      PORT: 3300
+      HOST: 0.0.0.0
+      LOG_LEVEL: info
+      UPSTREAM_GATEWAY_URL: http://kong:8000
+      UPSTREAM_TIMEOUT_MS: 5000
+      MOBILE_PAGE_SIZE: 20
+      JWT_SECRET: change_this_in_production_minimum_32_chars
+      JWT_ISSUER: http://localhost:8080/realms/crm
+      CORS_ORIGINS: "*"
+    ports:
+      - "3300:3300"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q --tries=1 http://localhost:3300/health -O /dev/null || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    networks:
+      - crm-network
