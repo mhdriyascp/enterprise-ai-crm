@@ -248,3 +248,33 @@ Runbooks for common incidents are located in `docs/runbooks/`:
 - `kafka-consumer-lag-spike.md`
 - `service-oom-restart.md`
 - `ai-cost-spike.md`
+
+---
+
+## Provisioned Configuration (Phase 20)
+
+The monitoring stack ships with ready-to-run configuration under
+`infrastructure/docker/`:
+
+| Path | Purpose |
+|---|---|
+| `prometheus/prometheus.yml` | Scrape targets for all services + Kong, plus alerting/rule wiring |
+| `prometheus/rules/alerts.yml` | Alerting rules (service down, error rate, latency, memory, event-loop lag) |
+| `alertmanager/alertmanager.yml` | Alert routing with critical/warning tiers and inhibition |
+| `grafana/datasources/prometheus.yml` | Prometheus datasource provisioning |
+| `grafana/dashboards/dashboards.yml` | Dashboard provider configuration |
+| `grafana/dashboards/crm-platform-overview.json` | Platform overview dashboard (availability, request rate, error rate, p95 latency) |
+
+### Running Locally
+
+```bash
+docker compose up -d prometheus alertmanager grafana
+```
+
+- Prometheus: <http://localhost:9090> (check **Status → Rules** and **Alerts**)
+- Alertmanager: <http://localhost:9093>
+- Grafana: <http://localhost:3001> (default credentials `admin` / `admin_password`)
+
+Alerts are delivered by Alertmanager to the notification-service webhook
+(`/internal/alerts`) by default; wire environment-specific receivers
+(PagerDuty, Slack, Teams) via overrides per the tables above.

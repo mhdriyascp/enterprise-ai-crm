@@ -20,6 +20,7 @@ volumes:
   keycloak-data:
   prometheus-data:
   grafana-data:
+  alertmanager-data:
   langfuse-data:
 
 services:
@@ -291,8 +292,34 @@ services:
     volumes:
       - prometheus-data:/prometheus
       - ./infrastructure/docker/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./infrastructure/docker/prometheus/rules:/etc/prometheus/rules:ro
+    depends_on:
+      - alertmanager
     healthcheck:
       test: ["CMD-SHELL", "wget -q --tries=1 http://localhost:9090/-/healthy -O /dev/null || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+    networks:
+      - crm-network
+
+  # =========================================================================
+  # Alertmanager — Alert routing and notification
+  # =========================================================================
+  alertmanager:
+    image: prom/alertmanager:v0.27.0
+    container_name: crm-alertmanager
+    restart: unless-stopped
+    command:
+      - "--config.file=/etc/alertmanager/alertmanager.yml"
+      - "--storage.path=/alertmanager"
+    ports:
+      - "9093:9093"
+    volumes:
+      - alertmanager-data:/alertmanager
+      - ./infrastructure/docker/alertmanager/alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q --tries=1 http://localhost:9093/-/healthy -O /dev/null || exit 1"]
       interval: 30s
       timeout: 10s
       retries: 5
