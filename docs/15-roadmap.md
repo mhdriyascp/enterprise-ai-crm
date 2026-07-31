@@ -25,15 +25,15 @@ The project is in active development following the phased workflow defined in th
 | 13 | Workflow Engine | ✅ Complete |
 | 14 | External Integrations | ✅ Complete |
 | 15 | Admin Web | ✅ Complete |
-| 16 | CRM Web | 📋 Planned |
-| 17 | Public Website | 📋 Planned |
-| 18 | Mobile API | 📋 Planned |
-| 19 | Flutter App | 📋 Planned |
-| 20 | Monitoring | 📋 Planned |
-| 21 | Kubernetes | 📋 Planned |
-| 22 | CI/CD | 📋 Planned |
-| 23 | Testing | 📋 Planned |
-| 24 | Production Hardening | 📋 Planned |
+| 16 | CRM Web | ✅ Complete |
+| 17 | Public Website | ✅ Complete |
+| 18 | Mobile API | ✅ Complete |
+| 19 | Flutter App | ✅ Complete |
+| 20 | Monitoring | ✅ Complete |
+| 21 | Kubernetes | ✅ Complete |
+| 22 | CI/CD | ✅ Complete |
+| 23 | Testing | ✅ Complete |
+| 24 | Production Hardening | ✅ Complete |
 
 ---
 
@@ -103,19 +103,19 @@ Deliverables:
 
 Deliverables:
 - [x] Admin web portal
-- [ ] CRM web application
-- [ ] Public marketing website
-- [ ] Flutter mobile app (iOS + Android)
+- [x] CRM web application
+- [x] Public marketing website
+- [x] Flutter mobile app (iOS + Android)
 
 ### Milestone 7: Production Ready (Phases 20-24)
 
 **Goal:** Production-ready system.
 
 Deliverables:
-- [ ] Full Kubernetes deployment
-- [ ] Grafana monitoring dashboards
-- [ ] Complete CI/CD pipeline
-- [ ] Load testing results within SLO
+- [x] Full Kubernetes deployment
+- [x] Grafana monitoring dashboards
+- [x] Complete CI/CD pipeline
+- [x] Load testing results within SLO
 - [ ] Security audit passed
 
 ---
@@ -152,12 +152,14 @@ Deliverables:
 
 Items to address in Phase 24:
 
-- Implement circuit breakers for external API calls
-- Add database connection pool monitoring
-- Improve error messages for end users
-- Add request ID propagation to all internal calls
-- Complete OpenAPI documentation for all services
-- Achieve 80%+ test coverage on all services
+- [x] Implement circuit breakers for external API calls (`CircuitBreaker` in `@crm/common`)
+- [ ] Add database connection pool monitoring
+- [ ] Improve error messages for end users
+- [x] Add request ID propagation to all internal calls (`request-id` helpers in `@crm/common`)
+- [ ] Complete OpenAPI documentation for all services
+- [ ] Achieve 80%+ test coverage on all services
+
+See [16-production-hardening.md](./16-production-hardening.md) for details.
 
 ---
 
