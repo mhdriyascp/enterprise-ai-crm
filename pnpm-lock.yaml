@@ -1034,6 +1034,9 @@ importers:
 
   services/workflow:
     dependencies:
+      '@crm/auth':
+        specifier: workspace:*
+        version: link:../../packages/auth
       '@crm/common':
         specifier: workspace:*
         version: link:../../packages/common
@@ -1058,6 +1061,9 @@ importers:
       '@fastify/jwt':
         specifier: ^8.0.1
         version: 8.0.1
+      '@fastify/rate-limit':
+        specifier: ^9.1.0
+        version: 9.1.0
       '@fastify/swagger':
         specifier: ^8.14.0
         version: 8.15.0
