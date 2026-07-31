@@ -1,0 +1,118 @@
+name: CD — Deploy
+
+on:
+  push:
+    branches: [main]
+  release:
+    types: [published]
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_PREFIX: ghcr.io/${{ github.repository_owner }}/crm
+
+jobs:
+  # ---------------------------------------------------------------------------
+  # Build and Push Docker Images
+  # ---------------------------------------------------------------------------
+  build-and-push:
+    name: Build & Push ${{ matrix.service }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    strategy:
+      matrix:
+        service:
+          - identity
+          - customer
+          - lead
+          - opportunity
+          - sales
+          - task
+          - calendar
+          - document
+          - workflow
+          - notification
+          - reporting
+          - ai-platform
+          - integration
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract Docker metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.IMAGE_PREFIX }}-${{ matrix.service }}
+          tags: |
+            type=ref,event=branch
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=sha,prefix=sha-
+
+      - name: Build and push
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: services/${{ matrix.service }}/Dockerfile
+          build-args: SERVICE_NAME=${{ matrix.service }}
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  # ---------------------------------------------------------------------------
+  # Deploy to Development Environment
+  # ---------------------------------------------------------------------------
+  deploy-development:
+    name: Deploy to Development
+    runs-on: ubuntu-latest
+    needs: [build-and-push]
+    if: github.ref == 'refs/heads/main'
+    environment: development
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Update image tags in k8s manifests
+        run: |
+          SHA="${{ github.sha }}"
+          SHORT_SHA="${SHA:0:7}"
+          find kubernetes/overlays/development -name "*.yaml" \
+            -exec sed -i "s|:sha-[a-f0-9]*|:sha-$SHORT_SHA|g" {} \;
+
+      - name: Commit updated manifests
+        run: |
+          git config user.name "GitHub Actions"
+          git config user.email "actions@github.com"
+          git add kubernetes/
+          git diff --staged --quiet || git commit -m "chore(cd): update development images to sha-${{ github.sha }}"
+          git push
+
+  # ---------------------------------------------------------------------------
+  # Deploy to Production (release only)
+  # ---------------------------------------------------------------------------
+  deploy-production:
+    name: Deploy to Production
+    runs-on: ubuntu-latest
+    needs: [build-and-push]
+    if: github.event_name == 'release'
+    environment: production
+    steps:
+      - name: Deploy via Argo CD
+        run: |
+          echo "Production deployment via Argo CD"
+          echo "Tag: ${{ github.event.release.tag_name }}"
+          # argocd app sync crm-platform --revision ${{ github.event.release.tag_name }}

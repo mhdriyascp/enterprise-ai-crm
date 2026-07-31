@@ -1,0 +1,30 @@
+{
+  "name": "@crm/events",
+  "version": "0.1.0",
+  "description": "Kafka event schemas, producers, and consumers for the Enterprise AI CRM platform",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    }
+  },
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "typecheck": "tsc --noEmit",
+    "clean": "rm -rf dist"
+  },
+  "dependencies": {
+    "@crm/types": "workspace:*",
+    "@crm/logging": "workspace:*",
+    "kafkajs": "^2.2.4",
+    "uuid": "^10.0.0"
+  },
+  "devDependencies": {
+    "@types/uuid": "^10.0.0",
+    "@types/node": "^20.14.0",
+    "typescript": "^5.5.2"
+  }
+}

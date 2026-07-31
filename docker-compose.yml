@@ -1,0 +1,492 @@
+version: "3.9"
+
+# ===========================================================================
+# Enterprise AI CRM — Local Development Environment
+# Start everything with: docker compose up -d
+# ===========================================================================
+
+networks:
+  crm-network:
+    driver: bridge
+
+volumes:
+  postgres-data:
+  redis-data:
+  kafka-data:
+  zookeeper-data:
+  qdrant-data:
+  opensearch-data:
+  minio-data:
+  keycloak-data:
+  prometheus-data:
+  grafana-data:
+  langfuse-data:
+
+services:
+
+  # =========================================================================
+  # PostgreSQL — Primary Relational Database
+  # =========================================================================
+  postgres:
+    image: postgres:16-alpine
+    container_name: crm-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: crm
+      POSTGRES_PASSWORD: crm_dev_password
+      POSTGRES_DB: crm_identity
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./infrastructure/docker/postgres/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U crm -d crm_identity"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - crm-network
+
+  # =========================================================================
+  # Redis — Cache, Sessions, Pub/Sub
+  # =========================================================================
+  redis:
+    image: redis:7-alpine
+    container_name: crm-redis
+    restart: unless-stopped
+    command: redis-server --appendonly yes --requirepass crm_redis_password
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "crm_redis_password", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - crm-network
+
+  # =========================================================================
+  # Zookeeper — Required by Kafka
+  # =========================================================================
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.6.0
+    container_name: crm-zookeeper
+    restart: unless-stopped
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+    volumes:
+      - zookeeper-data:/var/lib/zookeeper/data
+    healthcheck:
+      test: ["CMD-SHELL", "echo ruok | nc localhost 2181 | grep imok"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - crm-network
+
+  # =========================================================================
+  # Apache Kafka — Event Streaming
+  # =========================================================================
+  kafka:
+    image: confluentinc/cp-kafka:7.6.0
+    container_name: crm-kafka
+    restart: unless-stopped
+    depends_on:
+      zookeeper:
+        condition: service_healthy
+    ports:
+      - "9092:9092"
+      - "9093:9093"
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:29092,PLAINTEXT_HOST://localhost:9092
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
+      KAFKA_LOG_RETENTION_HOURS: 168
+    volumes:
+      - kafka-data:/var/lib/kafka/data
+    healthcheck:
+      test: ["CMD-SHELL", "kafka-topics --bootstrap-server localhost:9092 --list"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+    networks:
+      - crm-network
+
+  # =========================================================================
+  # Kafka UI — Web interface for Kafka management
+  # =========================================================================
+  kafka-ui:
+    image: provectuslabs/kafka-ui:latest
+    container_name: crm-kafka-ui
+    restart: unless-stopped
+    depends_on:
+      - kafka
+    ports:
+      - "8090:8080"
+    environment:
+      KAFKA_CLUSTERS_0_NAME: crm-local
+      KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka:29092
+    networks:
+      - crm-network
+
+  # =========================================================================
+  # Qdrant — Vector Database for AI/RAG
+  # =========================================================================
+  qdrant:
+    image: qdrant/qdrant:v1.9.0
+    container_name: crm-qdrant
+    restart: unless-stopped
+    ports:
+      - "6333:6333"
+      - "6334:6334"
+    volumes:
+      - qdrant-data:/qdrant/storage
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:6333/healthz || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - crm-network
+
+  # =========================================================================
+  # OpenSearch — Full-Text Search and Log Aggregation
+  # =========================================================================
+  opensearch:
+    image: opensearchproject/opensearch:2.13.0
+    container_name: crm-opensearch
+    restart: unless-stopped
+    environment:
+      discovery.type: single-node
+      OPENSEARCH_INITIAL_ADMIN_PASSWORD: CrmDev@1234!
+      plugins.security.disabled: "true"
+      OPENSEARCH_JAVA_OPTS: "-Xms512m -Xmx512m"
+    ports:
+      - "9200:9200"
+      - "9600:9600"
+    volumes:
+      - opensearch-data:/usr/share/opensearch/data
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:9200/_cluster/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+    networks:
+      - crm-network
+
+  # =========================================================================
+  # MinIO — Object Storage (Documents, Files)
+  # =========================================================================
+  minio:
+    image: minio/minio:RELEASE.2024-05-01T01-11-10Z
+    container_name: crm-minio
+    restart: unless-stopped
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: crm_minio_user
+      MINIO_ROOT_PASSWORD: crm_minio_password
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    volumes:
+      - minio-data:/data
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:9000/minio/health/live || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+    networks:
+      - crm-network
+
+  # =========================================================================
+  # Keycloak — Identity Provider (OAuth2, OIDC)
+  # =========================================================================
+  keycloak:
+    image: quay.io/keycloak/keycloak:24.0
+    container_name: crm-keycloak
+    restart: unless-stopped
+    command: start-dev
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      KC_DB: postgres
+      KC_DB_URL: jdbc:postgresql://postgres:5432/crm_keycloak
+      KC_DB_USERNAME: crm
+      KC_DB_PASSWORD: crm_dev_password
+      KC_HOSTNAME: localhost
+      KC_HOSTNAME_PORT: 8080
+      KC_HTTP_ENABLED: "true"
+      KEYCLOAK_ADMIN: admin
+      KEYCLOAK_ADMIN_PASSWORD: admin_password
+    ports:
+      - "8080:8080"
+    volumes:
+      - keycloak-data:/opt/keycloak/data
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:8080/health/ready || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 10
+    networks:
+      - crm-network
+
+  # =========================================================================
+  # Kong API Gateway
+  # =========================================================================
+  kong-db:
+    image: postgres:16-alpine
+    container_name: crm-kong-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: kong
+      POSTGRES_PASSWORD: kong_password
+      POSTGRES_DB: kong
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U kong -d kong"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - crm-network
+
+  kong-migrations:
+    image: kong:3.6-ubuntu
+    container_name: crm-kong-migrations
+    depends_on:
+      kong-db:
+        condition: service_healthy
+    environment:
+      KONG_DATABASE: postgres
+      KONG_PG_HOST: kong-db
+      KONG_PG_USER: kong
+      KONG_PG_PASSWORD: kong_password
+      KONG_PG_DATABASE: kong
+    command: kong migrations bootstrap
+    restart: on-failure
+    networks:
+      - crm-network
+
+  kong:
+    image: kong:3.6-ubuntu
+    container_name: crm-kong
+    restart: unless-stopped
+    depends_on:
+      kong-db:
+        condition: service_healthy
+      kong-migrations:
+        condition: service_completed_successfully
+    environment:
+      KONG_DATABASE: postgres
+      KONG_PG_HOST: kong-db
+      KONG_PG_USER: kong
+      KONG_PG_PASSWORD: kong_password
+      KONG_PG_DATABASE: kong
+      KONG_PROXY_ACCESS_LOG: /dev/stdout
+      KONG_ADMIN_ACCESS_LOG: /dev/stdout
+      KONG_PROXY_ERROR_LOG: /dev/stderr
+      KONG_ADMIN_ERROR_LOG: /dev/stderr
+      KONG_ADMIN_LISTEN: "0.0.0.0:8001"
+      KONG_PROXY_LISTEN: "0.0.0.0:8000"
+    ports:
+      - "8000:8000"   # Proxy
+      - "8001:8001"   # Admin API
+      - "8443:8443"   # Proxy SSL
+      - "8444:8444"   # Admin SSL
+    healthcheck:
+      test: ["CMD-SHELL", "kong health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+    networks:
+      - crm-network
+
+  # =========================================================================
+  # Prometheus — Metrics Collection
+  # =========================================================================
+  prometheus:
+    image: prom/prometheus:v2.51.0
+    container_name: crm-prometheus
+    restart: unless-stopped
+    command:
+      - "--config.file=/etc/prometheus/prometheus.yml"
+      - "--storage.tsdb.path=/prometheus"
+      - "--web.console.libraries=/usr/share/prometheus/console_libraries"
+      - "--web.console.templates=/usr/share/prometheus/consoles"
+      - "--web.enable-lifecycle"
+    ports:
+      - "9090:9090"
+    volumes:
+      - prometheus-data:/prometheus
+      - ./infrastructure/docker/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q --tries=1 http://localhost:9090/-/healthy -O /dev/null || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+    networks:
+      - crm-network
+
+  # =========================================================================
+  # Grafana — Dashboards and Alerting
+  # =========================================================================
+  grafana:
+    image: grafana/grafana:10.4.0
+    container_name: crm-grafana
+    restart: unless-stopped
+    depends_on:
+      - prometheus
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: admin_password
+      GF_USERS_ALLOW_SIGN_UP: "false"
+    ports:
+      - "3001:3000"
+    volumes:
+      - grafana-data:/var/lib/grafana
+      - ./infrastructure/docker/grafana/dashboards:/etc/grafana/provisioning/dashboards:ro
+      - ./infrastructure/docker/grafana/datasources:/etc/grafana/provisioning/datasources:ro
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:3000/api/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+    networks:
+      - crm-network
+
+  # =========================================================================
+  # Langfuse — LLM Observability
+  # =========================================================================
+  langfuse-db:
+    image: postgres:16-alpine
+    container_name: crm-langfuse-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: langfuse
+      POSTGRES_PASSWORD: langfuse_password
+      POSTGRES_DB: langfuse
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U langfuse -d langfuse"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - crm-network
+
+  langfuse:
+    image: langfuse/langfuse:2
+    container_name: crm-langfuse
+    restart: unless-stopped
+    depends_on:
+      langfuse-db:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: ******langfuse-db:5432/langfuse
+      NEXTAUTH_SECRET: langfuse_dev_secret_do_not_use_in_prod
+      SALT: langfuse_dev_salt_do_not_use_in_prod
+      NEXTAUTH_URL: http://localhost:3030
+      TELEMETRY_ENABLED: "false"
+    ports:
+      - "3030:3000"
+    volumes:
+      - langfuse-data:/app/.next
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:3000/api/public/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 10
+    networks:
+      - crm-network
+
+  # =========================================================================
+  # Placeholder Services — CRM Microservices
+  # These will be replaced by real service implementations in later phases.
+  # =========================================================================
+
+  identity-service:
+    image: node:20-alpine
+    container_name: crm-identity-service
+    restart: unless-stopped
+    working_dir: /app
+    command: sh -c "echo 'Identity Service placeholder - replace with real implementation' && node -e \"const http=require('http');http.createServer((req,res)=>{if(req.url==='/health'){res.writeHead(200,{'Content-Type':'application/json'});res.end(JSON.stringify({status:'ok',service:'identity-service',version:'0.1.0-placeholder'}))}else{res.writeHead(404);res.end()}}).listen(3000,()=>console.log('Identity Service placeholder running on :3000'))\""
+    ports:
+      - "3100:3000"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q --tries=1 http://localhost:3000/health -O /dev/null || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    networks:
+      - crm-network
+
+  customer-service:
+    image: node:20-alpine
+    container_name: crm-customer-service
+    restart: unless-stopped
+    working_dir: /app
+    command: sh -c "node -e \"const http=require('http');http.createServer((req,res)=>{if(req.url==='/health'){res.writeHead(200,{'Content-Type':'application/json'});res.end(JSON.stringify({status:'ok',service:'customer-service',version:'0.1.0-placeholder'}))}else{res.writeHead(404);res.end()}}).listen(3000,()=>console.log('Customer Service placeholder running on :3000'))\""
+    ports:
+      - "3101:3000"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q --tries=1 http://localhost:3000/health -O /dev/null || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    networks:
+      - crm-network
+
+  lead-service:
+    image: node:20-alpine
+    container_name: crm-lead-service
+    restart: unless-stopped
+    working_dir: /app
+    command: sh -c "node -e \"const http=require('http');http.createServer((req,res)=>{if(req.url==='/health'){res.writeHead(200,{'Content-Type':'application/json'});res.end(JSON.stringify({status:'ok',service:'lead-service',version:'0.1.0-placeholder'}))}else{res.writeHead(404);res.end()}}).listen(3000,()=>console.log('Lead Service placeholder running on :3000'))\""
+    ports:
+      - "3102:3000"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q --tries=1 http://localhost:3000/health -O /dev/null || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    networks:
+      - crm-network
+
+  opportunity-service:
+    image: node:20-alpine
+    container_name: crm-opportunity-service
+    restart: unless-stopped
+    working_dir: /app
+    command: sh -c "node -e \"const http=require('http');http.createServer((req,res)=>{if(req.url==='/health'){res.writeHead(200,{'Content-Type':'application/json'});res.end(JSON.stringify({status:'ok',service:'opportunity-service',version:'0.1.0-placeholder'}))}else{res.writeHead(404);res.end()}}).listen(3000,()=>console.log('Opportunity Service placeholder running on :3000'))\""
+    ports:
+      - "3103:3000"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q --tries=1 http://localhost:3000/health -O /dev/null || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    networks:
+      - crm-network
+
+  ai-platform:
+    image: node:20-alpine
+    container_name: crm-ai-platform
+    restart: unless-stopped
+    working_dir: /app
+    command: sh -c "node -e \"const http=require('http');http.createServer((req,res)=>{if(req.url==='/health'){res.writeHead(200,{'Content-Type':'application/json'});res.end(JSON.stringify({status:'ok',service:'ai-platform',version:'0.1.0-placeholder'}))}else{res.writeHead(404);res.end()}}).listen(3000,()=>console.log('AI Platform placeholder running on :3000'))\""
+    ports:
+      - "3200:3000"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q --tries=1 http://localhost:3000/health -O /dev/null || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    networks:
+      - crm-network

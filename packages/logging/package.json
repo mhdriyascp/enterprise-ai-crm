@@ -1,0 +1,27 @@
+{
+  "name": "@crm/logging",
+  "version": "0.1.0",
+  "description": "Shared structured logging for the Enterprise AI CRM platform",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    }
+  },
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "typecheck": "tsc --noEmit",
+    "clean": "rm -rf dist"
+  },
+  "dependencies": {
+    "pino": "^9.2.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.14.0",
+    "pino-pretty": "^11.2.0",
+    "typescript": "^5.5.2"
+  }
+}
