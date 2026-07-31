@@ -572,3 +572,67 @@ services:
       retries: 3
     networks:
       - crm-network
+
+  workflow-service:
+    build:
+      context: .
+      dockerfile: services/workflow/Dockerfile
+      args:
+        SERVICE_NAME: workflow
+    container_name: crm-workflow-service
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      SERVICE_NAME: workflow-service
+      PORT: 3000
+      HOST: 0.0.0.0
+      LOG_LEVEL: info
+      DATABASE_URL: postgresql://crm:crm_dev_password@postgres:5432/crm_workflow
+      JWT_SECRET: change_this_in_production_minimum_32_chars
+      JWT_ISSUER: http://localhost:8080/realms/crm
+      EVENTS_ENABLED: "false"
+      KAFKA_BROKERS: kafka:29092
+      KAFKA_CLIENT_ID: crm-workflow
+    ports:
+      - "3110:3000"
+    depends_on:
+      - postgres
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q --tries=1 http://localhost:3000/health -O /dev/null || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    networks:
+      - crm-network
+
+  integration-service:
+    build:
+      context: .
+      dockerfile: services/integration/Dockerfile
+      args:
+        SERVICE_NAME: integration
+    container_name: crm-integration-service
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      SERVICE_NAME: integration-service
+      PORT: 3000
+      HOST: 0.0.0.0
+      LOG_LEVEL: info
+      DATABASE_URL: postgresql://crm:crm_dev_password@postgres:5432/crm_integration
+      JWT_SECRET: change_this_in_production_minimum_32_chars
+      JWT_ISSUER: http://localhost:8080/realms/crm
+      EVENTS_ENABLED: "false"
+      KAFKA_BROKERS: kafka:29092
+      KAFKA_CLIENT_ID: crm-integration
+    ports:
+      - "3201:3000"
+    depends_on:
+      - postgres
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q --tries=1 http://localhost:3000/health -O /dev/null || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    networks:
+      - crm-network

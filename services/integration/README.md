@@ -1,6 +1,11 @@
 # Integration Service
 
-Adapters for external third-party integrations (Google, Slack, Stripe, etc.).
+Manages connections to external third-party providers (Slack, Google Workspace,
+Microsoft 365, Stripe, HubSpot, Salesforce, Zapier and generic webhooks) and
+keeps an append-only activity log per connection.
+
+Provider secrets are **never** stored here — only an opaque `credentialsRef`
+(e.g. a secrets-manager key) is persisted and resolved out-of-band at call time.
 
 ## Port
 
@@ -31,7 +36,35 @@ pnpm db:migrate:deploy
 pnpm dev
 ```
 
-## API Documentation
+## Concepts
+
+- **Integration** — a configured connection to a provider with a `status`
+  (`connected` / `disconnected` / `error`) and free-form `config`.
+- **Integration event** — an append-only log entry recording lifecycle,
+  `test`, `sync` and inbound `webhook` activity.
+
+Lifecycle: `connect` (requires `credentialsRef`) → `test` → `sync`. `disconnect`
+returns the integration to the disconnected state.
+
+## API
+
+Base path: `/api/v1/integrations`
+
+| Method | Path | Description |
+|---|---|---|
+| POST | `/` | Create an integration |
+| GET | `/` | List integrations |
+| GET | `/:id` | Get an integration |
+| PATCH | `/:id` | Update an integration |
+| DELETE | `/:id` | Soft-delete an integration |
+| POST | `/:id/connect` | Connect (requires `credentialsRef`) |
+| POST | `/:id/disconnect` | Disconnect |
+| POST | `/:id/test` | Test the connection |
+| POST | `/:id/sync` | Trigger a sync |
+| POST | `/:id/webhook` | Record an inbound webhook |
+| GET | `/:id/events` | List activity events |
+
+### API Documentation
 
 When running, OpenAPI docs are available at:
 - Swagger UI: `http://localhost:3201/docs`
@@ -42,7 +75,6 @@ When running, OpenAPI docs are available at:
 ```
 GET http://localhost:3201/health
 GET http://localhost:3201/health/ready
-GET http://localhost:3201/metrics
 ```
 
 ## Development
@@ -61,8 +93,8 @@ This service follows Clean Architecture:
 
 ```
 src/
-├── domain/           # Business entities and rules
-├── application/      # Use cases and handlers
-├── infrastructure/   # DB, HTTP, Kafka adapters
-└── interface/        # HTTP routes and controllers
+├── domain/           # Business entities and enums
+├── application/      # Use cases (connection lifecycle)
+├── infrastructure/   # DB, HTTP adapters
+└── interface/        # HTTP routes, DTOs and middleware
 ```
