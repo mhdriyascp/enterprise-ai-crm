@@ -1,0 +1,254 @@
+# =============================================================================
+# Kong API Gateway — Declarative (DB-less) Configuration
+# =============================================================================
+# This file is the single source of truth for the API Gateway. Kong runs in
+# DB-less mode and loads this file on startup (KONG_DECLARATIVE_CONFIG).
+#
+# It configures, per docs/07-security.md and docs/02-system-architecture.md:
+#   * Versioned routing (/api/v1/*) to each backend microservice
+#   * JWT validation at the edge (HS256, issued by the Identity service)
+#   * Rate limiting per tier (public / authenticated / AI)
+#   * Request logging (correlation id + http-log shipped to OpenSearch)
+#   * Security headers and CORS
+#   * Prometheus metrics and gateway health checks
+#
+# For local development the JWT secret/issuer below match
+# services/identity/.env.example. Replace them with real secrets in production
+# (e.g. via Kong vaults or a templated deployment).
+# =============================================================================
+
+_format_version: "3.0"
+_transform: true
+
+# -----------------------------------------------------------------------------
+# Consumers & JWT credentials
+# -----------------------------------------------------------------------------
+# A single platform consumer trusts tokens issued by the Identity service. The
+# `key` MUST equal the JWT `iss` claim so Kong can select the right credential.
+consumers:
+  - username: crm-platform
+    jwt_secrets:
+      - key: "http://localhost:8080/realms/crm" # == JWT_ISSUER
+        algorithm: HS256
+        secret: "change_this_in_production_minimum_32_chars" # == JWT_SECRET
+
+# -----------------------------------------------------------------------------
+# Upstream services & routes
+# -----------------------------------------------------------------------------
+services:
+  # ---------------------------------------------------------------------------
+  # Identity & IAM — auth endpoints are PUBLIC, the rest require a valid JWT.
+  # ---------------------------------------------------------------------------
+  - name: identity-service
+    url: http://identity-service:3000
+    retries: 3
+    connect_timeout: 5000
+    read_timeout: 60000
+    write_timeout: 60000
+    routes:
+      # Public: registration, login, token refresh (no JWT required).
+      - name: identity-auth-public
+        paths:
+          - /api/v1/auth
+        strip_path: false
+        plugins:
+          - name: rate-limiting
+            config:
+              minute: 100
+              policy: redis
+              redis:
+                host: redis
+                port: 6379
+                password: crm_redis_password
+              limit_by: ip
+              fault_tolerant: true
+      # Protected identity management endpoints.
+      - name: identity-admin
+        paths:
+          - /api/v1/tenants
+          - /api/v1/users
+          - /api/v1/roles
+          - /api/v1/permissions
+          - /api/v1/api-keys
+          - /api/v1/audit-logs
+        strip_path: false
+        plugins:
+          - name: jwt
+          - name: rate-limiting
+            config:
+              minute: 1000
+              policy: redis
+              redis:
+                host: redis
+                port: 6379
+                password: crm_redis_password
+              limit_by: consumer
+              fault_tolerant: true
+
+  # ---------------------------------------------------------------------------
+  # CRM core services — all require a valid JWT (authenticated tier).
+  # ---------------------------------------------------------------------------
+  - name: organization-service
+    url: http://organization-service:3000
+    routes:
+      - name: organizations-v1
+        paths:
+          - /api/v1/organizations
+        strip_path: false
+        plugins:
+          - name: jwt
+          - name: rate-limiting
+            config: &authenticated_rate_limit
+              minute: 1000
+              policy: redis
+              redis:
+                host: redis
+                port: 6379
+                password: crm_redis_password
+              limit_by: consumer
+              fault_tolerant: true
+
+  - name: customer-service
+    url: http://customer-service:3000
+    routes:
+      - name: customers-v1
+        paths:
+          - /api/v1/customers
+        strip_path: false
+        plugins:
+          - name: jwt
+          - name: rate-limiting
+            config: *authenticated_rate_limit
+
+  - name: contact-service
+    url: http://contact-service:3000
+    routes:
+      - name: contacts-v1
+        paths:
+          - /api/v1/contacts
+        strip_path: false
+        plugins:
+          - name: jwt
+          - name: rate-limiting
+            config: *authenticated_rate_limit
+
+  - name: lead-service
+    url: http://lead-service:3000
+    routes:
+      - name: leads-v1
+        paths:
+          - /api/v1/leads
+        strip_path: false
+        plugins:
+          - name: jwt
+          - name: rate-limiting
+            config: *authenticated_rate_limit
+
+  - name: opportunity-service
+    url: http://opportunity-service:3000
+    routes:
+      - name: opportunities-v1
+        paths:
+          - /api/v1/opportunities
+        strip_path: false
+        plugins:
+          - name: jwt
+          - name: rate-limiting
+            config: *authenticated_rate_limit
+
+  # ---------------------------------------------------------------------------
+  # AI Platform — stricter per-user rate limit (60 req/min per docs).
+  # ---------------------------------------------------------------------------
+  - name: ai-platform
+    url: http://ai-platform:3000
+    routes:
+      - name: ai-v1
+        paths:
+          - /api/v1/ai
+        strip_path: false
+        plugins:
+          - name: jwt
+          - name: rate-limiting
+            config:
+              minute: 60
+              policy: redis
+              redis:
+                host: redis
+                port: 6379
+                password: crm_redis_password
+              limit_by: consumer
+              fault_tolerant: true
+
+# -----------------------------------------------------------------------------
+# Global plugins — applied to every request that flows through the gateway.
+# -----------------------------------------------------------------------------
+plugins:
+  # Propagate a correlation id to every downstream service and back to clients.
+  - name: correlation-id
+    config:
+      header_name: X-Request-ID
+      generator: uuid
+      echo_downstream: true
+
+  # Tag traffic that has been routed through the gateway.
+  - name: request-transformer
+    config:
+      add:
+        headers:
+          - "X-Gateway: kong"
+
+  # CORS handling at the edge.
+  - name: cors
+    config:
+      origins:
+        - "*"
+      methods:
+        - GET
+        - POST
+        - PUT
+        - PATCH
+        - DELETE
+        - OPTIONS
+      headers:
+        - Accept
+        - Authorization
+        - Content-Type
+        - X-API-Key
+        - X-Request-ID
+        - X-Tenant-ID
+      exposed_headers:
+        - X-Request-ID
+      credentials: true
+      max_age: 3600
+
+  # Standard security response headers (docs/07-security.md).
+  - name: response-transformer
+    config:
+      add:
+        headers:
+          - "X-Content-Type-Options: nosniff"
+          - "X-Frame-Options: DENY"
+          - "X-XSS-Protection: 1; mode=block"
+          - "Referrer-Policy: strict-origin-when-cross-origin"
+          - "Strict-Transport-Security: max-age=31536000; includeSubDomains"
+
+  # Prometheus metrics, scraped at :8001/metrics.
+  - name: prometheus
+    config:
+      status_code_metrics: true
+      latency_metrics: true
+      bandwidth_metrics: true
+
+  # Ship structured access logs to OpenSearch (document ingestion endpoint).
+  # In production a Logstash/Fluent Bit sink normalises these into an index.
+  - name: http-log
+    config:
+      http_endpoint: http://opensearch:9200/kong-logs/_doc
+      method: POST
+      content_type: application/json
+      timeout: 10000
+      keepalive: 60000
+      queue:
+        max_batch_size: 50
+        max_coalescing_delay: 2
+        max_retry_time: 60

@@ -1,0 +1,51 @@
+// =============================================================================
+// Opportunity Service — Prisma Schema (owns the `crm_opportunity` database).
+// =============================================================================
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// -----------------------------------------------------------------------------
+// Opportunity — a potential deal in the sales pipeline.
+// -----------------------------------------------------------------------------
+model Opportunity {
+  id                String           @id @default(uuid()) @db.Uuid
+  tenantId          String           @map("tenant_id") @db.Uuid
+  name              String
+  customerId        String           @map("customer_id") @db.Uuid
+  contactId         String?          @map("contact_id") @db.Uuid
+  stage             OpportunityStage @default(prospecting)
+  amount            Decimal          @default(0) @db.Decimal(18, 2)
+  currency          String           @default("USD") @db.Char(3)
+  probability       Int              @default(0)
+  expectedCloseDate DateTime?        @map("expected_close_date")
+  actualCloseDate   DateTime?        @map("actual_close_date")
+  ownerId           String?          @map("owner_id") @db.Uuid
+  tags              String[]         @default([])
+  notes             String?
+  customFields      Json             @default("{}") @map("custom_fields")
+  createdAt         DateTime         @default(now()) @map("created_at")
+  updatedAt         DateTime         @updatedAt @map("updated_at")
+  deletedAt         DateTime?        @map("deleted_at")
+
+  @@index([tenantId])
+  @@index([tenantId, stage])
+  @@index([tenantId, customerId])
+  @@index([tenantId, ownerId])
+  @@map("opportunities")
+}
+
+enum OpportunityStage {
+  prospecting
+  qualification
+  proposal
+  negotiation
+  closed_won
+  closed_lost
+}

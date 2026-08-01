@@ -1,0 +1,53 @@
+// =============================================================================
+// Organization Service — Prisma Schema (owns the `crm_organization` database).
+// Organizations are business units / companies grouped under a tenant.
+// =============================================================================
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// -----------------------------------------------------------------------------
+// Organization — a company or business unit within a tenant.
+// -----------------------------------------------------------------------------
+model Organization {
+  id           String             @id @default(uuid()) @db.Uuid
+  tenantId     String             @map("tenant_id") @db.Uuid
+  name         String
+  slug         String
+  description  String?
+  website      String?
+  industry     String?
+  size         CompanySize?
+  status       OrganizationStatus @default(active)
+  parentId     String?            @map("parent_id") @db.Uuid
+  tags         String[]           @default([])
+  customFields Json               @default("{}") @map("custom_fields")
+  createdAt    DateTime           @default(now()) @map("created_at")
+  updatedAt    DateTime           @updatedAt @map("updated_at")
+  deletedAt    DateTime?          @map("deleted_at")
+
+  @@unique([tenantId, slug])
+  @@index([tenantId])
+  @@index([tenantId, status])
+  @@map("organizations")
+}
+
+enum CompanySize {
+  solo
+  small
+  medium
+  large
+  enterprise
+}
+
+enum OrganizationStatus {
+  active
+  inactive
+  archived
+}

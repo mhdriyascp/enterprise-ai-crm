@@ -1,0 +1,120 @@
+// =============================================================================
+// Workflow Service — Prisma Schema
+// Owns the `crm_workflow` database. Multi-tenant: every row is scoped by
+// tenantId (the isolation boundary enforced by the Identity service / gateway).
+// =============================================================================
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// -----------------------------------------------------------------------------
+// WorkflowDefinition — a reusable, versioned automation blueprint.
+// `steps` is an ordered JSON array of { id, name, type, config } objects.
+// -----------------------------------------------------------------------------
+model WorkflowDefinition {
+  id            String                   @id @default(uuid()) @db.Uuid
+  tenantId      String                   @map("tenant_id") @db.Uuid
+  name          String
+  description   String?
+  trigger       WorkflowTrigger          @default(manual)
+  triggerConfig Json                     @default("{}") @map("trigger_config")
+  steps         Json                     @default("[]")
+  status        WorkflowDefinitionStatus @default(draft)
+  version       Int                      @default(1)
+  ownerId       String?                  @map("owner_id") @db.Uuid
+  createdAt     DateTime                 @default(now()) @map("created_at")
+  updatedAt     DateTime                 @updatedAt @map("updated_at")
+  deletedAt     DateTime?                @map("deleted_at")
+
+  runs WorkflowRun[]
+
+  @@index([tenantId])
+  @@index([tenantId, status])
+  @@index([tenantId, trigger])
+  @@map("workflow_definitions")
+}
+
+// -----------------------------------------------------------------------------
+// WorkflowRun — a single execution instance of a WorkflowDefinition.
+// -----------------------------------------------------------------------------
+model WorkflowRun {
+  id           String            @id @default(uuid()) @db.Uuid
+  tenantId     String            @map("tenant_id") @db.Uuid
+  workflowId   String            @map("workflow_id") @db.Uuid
+  status       WorkflowRunStatus @default(pending)
+  input        Json              @default("{}")
+  output       Json?
+  stepResults  Json              @default("[]") @map("step_results")
+  currentStep  Int               @default(0) @map("current_step")
+  error        String?
+  triggeredBy  String?           @map("triggered_by") @db.Uuid
+  startedAt    DateTime?         @map("started_at")
+  completedAt  DateTime?         @map("completed_at")
+  createdAt    DateTime          @default(now()) @map("created_at")
+  updatedAt    DateTime          @updatedAt @map("updated_at")
+
+  workflow  WorkflowDefinition @relation(fields: [workflowId], references: [id], onDelete: Cascade)
+  approvals Approval[]
+
+  @@index([tenantId])
+  @@index([tenantId, status])
+  @@index([workflowId])
+  @@map("workflow_runs")
+}
+
+// -----------------------------------------------------------------------------
+// Approval — a human-in-the-loop gate raised by an `approval` step. A run pauses
+// at `waiting_approval` until the approval is resolved.
+// -----------------------------------------------------------------------------
+model Approval {
+  id         String         @id @default(uuid()) @db.Uuid
+  tenantId   String         @map("tenant_id") @db.Uuid
+  runId      String         @map("run_id") @db.Uuid
+  stepIndex  Int            @map("step_index")
+  stepName   String         @map("step_name")
+  status     ApprovalStatus @default(pending)
+  decidedBy  String?        @map("decided_by") @db.Uuid
+  comment    String?
+  createdAt  DateTime       @default(now()) @map("created_at")
+  decidedAt  DateTime?      @map("decided_at")
+
+  run WorkflowRun @relation(fields: [runId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+  @@index([tenantId, status])
+  @@index([runId])
+  @@map("approvals")
+}
+
+enum WorkflowTrigger {
+  manual
+  event
+  schedule
+}
+
+enum WorkflowDefinitionStatus {
+  draft
+  active
+  inactive
+}
+
+enum WorkflowRunStatus {
+  pending
+  running
+  waiting_approval
+  completed
+  failed
+  cancelled
+}
+
+enum ApprovalStatus {
+  pending
+  approved
+  rejected
+}

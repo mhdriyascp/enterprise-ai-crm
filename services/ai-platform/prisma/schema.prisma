@@ -1,0 +1,88 @@
+// =============================================================================
+// AI Platform — Prisma Schema (owns the `crm_ai_platform` database).
+//
+// Persists conversations/messages (chat history) and the RAG knowledge base
+// (documents + chunks). Vector embeddings live in the vector store (Qdrant or
+// the in-memory store); the relational store keeps the source of truth and
+// metadata.
+// =============================================================================
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// -----------------------------------------------------------------------------
+// Conversation — a chat session with a specific agent.
+// -----------------------------------------------------------------------------
+model Conversation {
+  id        String    @id @default(uuid()) @db.Uuid
+  tenantId  String    @map("tenant_id") @db.Uuid
+  userId    String?   @map("user_id") @db.Uuid
+  agentName String    @map("agent_name")
+  title     String?
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  messages  Message[]
+
+  @@index([tenantId])
+  @@index([tenantId, agentName])
+  @@map("conversations")
+}
+
+// -----------------------------------------------------------------------------
+// Message — a single turn within a conversation.
+// -----------------------------------------------------------------------------
+model Message {
+  id             String       @id @default(uuid()) @db.Uuid
+  conversationId String       @map("conversation_id") @db.Uuid
+  role           String
+  content        String
+  model          String?
+  tokensUsed     Int?         @map("tokens_used")
+  citations      Json?
+  createdAt      DateTime     @default(now()) @map("created_at")
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+
+  @@index([conversationId])
+  @@map("messages")
+}
+
+// -----------------------------------------------------------------------------
+// Document — an ingested knowledge-base source document.
+// -----------------------------------------------------------------------------
+model Document {
+  id         String   @id @default(uuid()) @db.Uuid
+  tenantId   String   @map("tenant_id") @db.Uuid
+  title      String
+  source     String?
+  metadata   Json     @default("{}")
+  chunkCount Int      @default(0) @map("chunk_count")
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+  chunks     Chunk[]
+
+  @@index([tenantId])
+  @@map("documents")
+}
+
+// -----------------------------------------------------------------------------
+// Chunk — a semantic slice of a Document, embedded into the vector store.
+// -----------------------------------------------------------------------------
+model Chunk {
+  id         String   @id @default(uuid()) @db.Uuid
+  tenantId   String   @map("tenant_id") @db.Uuid
+  documentId String   @map("document_id") @db.Uuid
+  chunkIndex Int      @map("chunk_index")
+  text       String
+  createdAt  DateTime @default(now()) @map("created_at")
+  document   Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+  @@index([documentId])
+  @@map("chunks")
+}

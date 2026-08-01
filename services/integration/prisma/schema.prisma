@@ -1,0 +1,95 @@
+// =============================================================================
+// Integration Service — Prisma Schema
+// Owns the `crm_integration` database. Multi-tenant: every row is scoped by
+// tenantId (the isolation boundary enforced by the Identity service / gateway).
+//
+// NOTE: provider secrets are never stored here. `credentialsRef` holds an opaque
+// reference (e.g. a secrets-manager key) resolved out-of-band at call time.
+// =============================================================================
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// -----------------------------------------------------------------------------
+// Integration — a configured connection to an external third-party provider.
+// -----------------------------------------------------------------------------
+model Integration {
+  id             String            @id @default(uuid()) @db.Uuid
+  tenantId       String            @map("tenant_id") @db.Uuid
+  provider       IntegrationProvider
+  name           String
+  status         IntegrationStatus @default(disconnected)
+  config         Json              @default("{}")
+  credentialsRef String?           @map("credentials_ref")
+  lastError      String?           @map("last_error")
+  lastSyncedAt   DateTime?         @map("last_synced_at")
+  ownerId        String?           @map("owner_id") @db.Uuid
+  createdAt      DateTime          @default(now()) @map("created_at")
+  updatedAt      DateTime          @updatedAt @map("updated_at")
+  deletedAt      DateTime?         @map("deleted_at")
+
+  events IntegrationEvent[]
+
+  @@index([tenantId])
+  @@index([tenantId, status])
+  @@index([tenantId, provider])
+  @@map("integrations")
+}
+
+// -----------------------------------------------------------------------------
+// IntegrationEvent — an append-only log of connection lifecycle, sync and
+// inbound webhook activity for an integration.
+// -----------------------------------------------------------------------------
+model IntegrationEvent {
+  id            String                @id @default(uuid()) @db.Uuid
+  tenantId      String                @map("tenant_id") @db.Uuid
+  integrationId String                @map("integration_id") @db.Uuid
+  type          IntegrationEventType
+  status        IntegrationEventStatus @default(success)
+  payload       Json                  @default("{}")
+  message       String?
+  createdAt     DateTime              @default(now()) @map("created_at")
+
+  integration Integration @relation(fields: [integrationId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+  @@index([integrationId])
+  @@index([integrationId, type])
+  @@map("integration_events")
+}
+
+enum IntegrationProvider {
+  slack
+  google_workspace
+  microsoft365
+  stripe
+  hubspot
+  salesforce
+  zapier
+  webhook
+}
+
+enum IntegrationStatus {
+  connected
+  disconnected
+  error
+}
+
+enum IntegrationEventType {
+  connected
+  disconnected
+  test
+  sync
+  webhook
+}
+
+enum IntegrationEventStatus {
+  success
+  failure
+}
